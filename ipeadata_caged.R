@@ -4,6 +4,8 @@ library(tidyverse)
 library(geobr)
 library(leaflet)
 library(sf)
+library(htmltools)
+library(glue)
 
 # extraindo dados geoespaciais dos municipios
 municipios <- read_municipality(year = 2022, simplified = T)
@@ -25,10 +27,23 @@ dados_caged <- ipeadatar::ipeadata(codigos) %>%
     values_from = value
   )
 
+# texto para o tooltip dentro do leaflet
+dados_caged <- dados_caged %>%
+  mutate(
+    tooltip_text = glue(
+      "Município: {name_muni}\n",
+      "Estado: {abbrev_state}\n",
+      "Admissões: {formatC(Admissões, big.mark = '.', decimal.mark = ',', format = 'd')}"
+    )
+  )
+
+# transformando a tabela para sf
 dados_caged_sf <- dados_caged %>%
   st_as_sf() %>%
   st_transform(crs = 4326)
 
+
+# criando leaflet para verificar os dados de admissão
 m <- dados_caged_sf %>%
   filter(date == "2025-01-01") %>%
   leaflet() %>%
@@ -38,6 +53,17 @@ m <- dados_caged_sf %>%
               weight = 1.0,
               fillOpacity = 0.5, 
               smoothFactor = 1,
+              label = ~tooltip_text,
+              labelOptions = labelOptions(
+                direction = "auto",
+                style = list("font-weight" = "normal", padding = "3px 8px"),
+                textsize = "13px"
+              ),
+              highlightOptions = highlightOptions(
+                weight = 2,
+                color = "black",
+                bringToFront = TRUE
+              ),
               fillColor = ~ colorQuantile(
                 palette = "YlOrRd",
                 domain = Admissões,
